@@ -82,6 +82,7 @@ void ModbusBleBridge::loop() {
     ESP_LOGW(TAG, "BLE response timeout after %u ms (loop). Resetting state.", this->ble_response_timeout_ms_);
     this->waiting_message_ = false;
     this->waiting_since_ = 0;
+    ESP_LOGI(TAG, "Closing TCP client due to BLE timeout (loop)");
     #if defined(ARDUINO)
     if (this->client_ && this->client_.connected()) this->client_.stop();
     #else
@@ -126,6 +127,7 @@ void ModbusBleBridge::handle_modbus_tcp() {
       if (ioctl(this->client_fd_, FIONREAD, &bytes) == 0) avail = bytes; else avail = r; 
     } else if (r == 0) {
       // connection closed
+      ESP_LOGI(TAG, "TCP client closed by peer");
       ::close(this->client_fd_); this->client_fd_ = -1; return;
     } else {
       // no data
@@ -150,6 +152,7 @@ void ModbusBleBridge::handle_modbus_tcp() {
       this->waiting_message_ = false;
       this->waiting_since_ = 0;
       // Option: drop the TCP client so the upper layer can retry
+      ESP_LOGI(TAG, "Closing TCP client due to BLE timeout while waiting");
       #if defined(ARDUINO)
       if (this->client_ && this->client_.connected()) this->client_.stop();
       #else
@@ -322,6 +325,7 @@ void ModbusBleBridge::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_i
       // Check if this is a function code 6 response (write single register)
       if (this->modbus_frame_response_.size() >= 8 && this->modbus_frame_response_[7] == 6) {
         ESP_LOGI(TAG, "Write command response - flushing client");
+        ESP_LOGI(TAG, "Closing TCP client after write single register response");
         #if defined(ARDUINO)
         this->client_.stop();
         #else
@@ -338,6 +342,7 @@ void ModbusBleBridge::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_i
         
         if (this->errlen_ > 5) {
           ESP_LOGE(TAG, "Too many length errors (5) - resetting connection");
+          ESP_LOGI(TAG, "Closing TCP client due to repeated length errors");
           #if defined(ARDUINO)
           this->client_.stop();
           #else
@@ -373,11 +378,13 @@ void ModbusBleBridge::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_i
       #if defined(ARDUINO)
       this->client_.write(combined.data(), combined.size());
       this->client_.stop();
+      ESP_LOGI(TAG, "Closed TCP client after sending Modbus/TCP response");
       #else
       if (this->client_fd_ >= 0) {
         ::send(this->client_fd_, (const char*)combined.data(), combined.size(), 0);
         ::close(this->client_fd_);
         this->client_fd_ = -1;
+        ESP_LOGI(TAG, "Closed TCP client after sending Modbus/TCP response (ESP-IDF)");
       }
       #endif
       break;
