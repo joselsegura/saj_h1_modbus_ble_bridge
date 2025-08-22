@@ -1,46 +1,70 @@
-# Saj H1-*-S2
-This is a ESPHome component that allows to serve Modbus over TCP. Is a bridge between Modbus TCP and BLE. Based on the work on this repo: https://github.com/sgsancho/saj_h1_s2_modbus_esp32
+# SAJ H1-*-S2 Modbus BLE Bridge
 
-Designed for the SAJ H1-*-S2 with the Bluetooth dongle that you can't connect to any API locally besides Bluetooth.
+ESPHome external component that exposes the SAJ H1-*-S2 inverter Modbus registers over TCP by tunnelling requests through the official Bluetooth dongle. Acts as a Modbus/TCP server backed by BLE (Modbus/RTU frames encapsulated over a proprietary BLE service). Based on: https://github.com/sgsancho/saj_h1_s2_modbus_esp32
 
-# Where does it work
-Tested on ESPHome with the arduino and esp-idf frameworks
-Tested on ESPHome 2025.6.3 and 2025.7.5
-NOT tested that using this component breaks any other BLE feature. Provide feedback on the issues.
+Designed for inverters that only provide local Bluetooth access (no LAN API) so you can query them from Home Assistant or any Modbus/TCP client (Node-RED, Python, etc.).
 
-# How to add to your ESPHome:
+## Status / Compatibility
+Tested with ESPHome 2025.6.3 and 2025.7.5
+Tested on both Arduino and ESP-IDF variants (ESP32).  
+Not validated together with other active BLE clients; feedback welcome.
 
-### 1. Add the external component
+## Repository Structure
+```
+modbus_ble_bridge/         Component folder (required by ESPHome external_components)
+  __init__.py              Python registration & schema
+  modbus_ble_bridge.h/.cpp C++ implementation
+README.md
+```
 
-````
+ESPHome expects each external component to live in its own top‑level folder named after the component (`modbus_ble_bridge`). The previous flat layout (files in repo root) would not be auto-detected — this repo is already reorganized accordingly.
+
+## 1. Add the external component
+```yaml
 external_components:
-  - source: github://pr#10368
-    components: [logger]
-    refresh: 1h
-````
+  - source: github://cypherbits/saj_h1_modbus_ble_bridge
+    components: [modbus_ble_bridge]
+    refresh: 1d   # optional
+```
 
-### 2. Configure a BLE client to connect the SAJ dongle
-
-````
-ble_client:
-  - mac_address: !secret ble_device_mac
-    id: saj_ble
-
+## 2. Configure BLE (scan + client)
+```yaml
 esp32_ble_tracker:
   scan_parameters:
     interval: 3500ms
     window: 1100ms
     active: true
-````
 
-### 3. Configure the component
+ble_client:
+  - mac_address: !secret saj_dongle_mac   # AA:BB:CC:DD:EE:FF
+    id: saj_ble
+```
 
-````
+## 3. Add the bridge component
+```yaml
 modbus_ble_bridge:
   ble_client_id: saj_ble
-  modbus_port: 502
-````
+  modbus_port: 502   # Optional (default 502)
+```
 
-### 4. Configure a Modbus client or use NodeRed to fetch the data
+## 4. Get the data on NodeRed
 
-NodeRed example flow: TODO
+---
+
+## 5. Querying
+Once flashed and connected, the device opens a Modbus/TCP server on the configured port (default 502). Point any Modbus tool at the ESP32 IP. Example (Python `pymodbus` or Node-RED Modbus node).
+
+## Notes / Limitations
+* Designed for simple request/response usage; one TCP request at a time.
+* The BLE response timeout is currently fixed in code (2s). If needed this can be exposed later via YAML.
+* Writes (FC 6) close the TCP connection immediately after the response (current implementation detail).
+
+## Troubleshooting
+* If you see "BLE write characteristic not found": ensure you paired the correct dongle MAC.
+* If Wi-Fi is not up, Modbus server waits (lazy init).
+* Repeated length errors (>5) force the TCP client to close; retry from the client side.
+
+## Roadmap / TODO
+* Expose BLE response timeout as a config option.
+* Provide Node-RED example flow.
+* Optional metrics sensors (uptime, error counters) via ESPHome sensors.
