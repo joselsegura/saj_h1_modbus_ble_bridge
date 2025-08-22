@@ -22,7 +22,10 @@ ESPHome expects each external component to live in its own top‑level folder na
 ## 1. Add the external component
 ```yaml
 external_components:
-  - source: github://cypherbits/saj_h1_modbus_ble_bridge
+  - source:
+      type: git
+      url: https://github.com/cypherbits/saj_h1_modbus_ble_bridge
+      ref: main
     components: [modbus_ble_bridge]
     refresh: 1d   # optional
 ```
