@@ -290,7 +290,7 @@ void ModbusBleBridge::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_i
     case ESP_GATTC_NOTIFY_EVT: {
       bool client_ok = false;
   #if defined(ARDUINO)
-      client_ok = reinterpreted_cast<bool>(this->client_) && this->client_.connected();
+      client_ok = this->client_.connected();
   #else
       client_ok = this->client_fd_ >= 0;
   #endif
