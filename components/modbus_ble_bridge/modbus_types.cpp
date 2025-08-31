@@ -63,22 +63,22 @@ const uint8_t* ModbusTCPRequest::getLengthBytes() const {
 
 void ModbusTCPRequest::printDebugInfo() const {
   ESP_LOGD(kModbusTypesTag, "Modbus TCP Frame Debug Info:");
-  ESP_LOGD(kModbusTypesTag, "  Transaction ID: 0x%02X%02X (%d)", 
-           transaction_identifier[0], transaction_identifier[1], 
+  ESP_LOGD(kModbusTypesTag, "  Transaction ID: 0x%02X%02X (%d)",
+           transaction_identifier[0], transaction_identifier[1],
            getTransactionId());
-  ESP_LOGD(kModbusTypesTag, "  Protocol ID: 0x%02X%02X", 
+  ESP_LOGD(kModbusTypesTag, "  Protocol ID: 0x%02X%02X",
            protocol_identifier[0], protocol_identifier[1]);
-  ESP_LOGD(kModbusTypesTag, "  Length: 0x%02X%02X (%d bytes)", 
-           length[0], length[1], 
+  ESP_LOGD(kModbusTypesTag, "  Length: 0x%02X%02X (%d bytes)",
+           length[0], length[1],
            (length[0] << 8) | length[1]);
-  ESP_LOGD(kModbusTypesTag, "  Unit ID: 0x%02X (%d)", 
+  ESP_LOGD(kModbusTypesTag, "  Unit ID: 0x%02X (%d)",
            unit_id, unit_id);
-  ESP_LOGD(kModbusTypesTag, "  Function Code: 0x%02X (%d)", 
+  ESP_LOGD(kModbusTypesTag, "  Function Code: 0x%02X (%d)",
            function_code, function_code);
-  ESP_LOGD(kModbusTypesTag, "  Address: 0x%02X%02X (%d)", 
+  ESP_LOGD(kModbusTypesTag, "  Address: 0x%02X%02X (%d)",
            address[0], address[1], getAddress());
-  ESP_LOGD(kModbusTypesTag, "  Number of Registers: 0x%02X%02X (%d)", 
-           number_registers[0], number_registers[1], 
+  ESP_LOGD(kModbusTypesTag, "  Number of Registers: 0x%02X%02X (%d)",
+           number_registers[0], number_registers[1],
            getNumberOfRegisters());
 }
 
@@ -96,7 +96,7 @@ ModbusBLERequest::ModbusBLERequest(const ModbusTCPRequest& request) {
   address[1] = request.getAddressBytes()[1];
   number_registers[0] = request.getNumberRegistersBytes()[0];
   number_registers[1] = request.getNumberRegistersBytes()[1];
-  
+
   ModbusBLERequest::ble_transaction_id++;
 }
 
@@ -105,7 +105,7 @@ std::array<uint8_t, 13> ModbusBLERequest::toByteArray() const {
   uint16_t crc = getModRTU_CRC();
   uint8_t high_byte = crc >> 8;
   uint8_t low_byte = crc & 0xFF;
-  
+
   std::array<uint8_t, 13> request = {
     77,                           // Magic number
     0,                            // Reserved
@@ -160,19 +160,19 @@ uint8_t ModbusBLERequest::getBLETransactionId() const {
 
 void ModbusBLERequest::printDebugInfo() const {
   ESP_LOGD(kModbusTypesTag, "Modbus BLE req Frame Debug Info:");
-  ESP_LOGD(kModbusTypesTag, "  BLE Transaction ID: 0x%02X (%d)", 
+  ESP_LOGD(kModbusTypesTag, "  BLE Transaction ID: 0x%02X (%d)",
            ble_transaction_identifier, ble_transaction_identifier);
-  ESP_LOGD(kModbusTypesTag, "  Transaction ID: 0x%02X%02X (%d)", 
+  ESP_LOGD(kModbusTypesTag, "  Transaction ID: 0x%02X%02X (%d)",
            transaction_identifier[0], transaction_identifier[1],
            getTransactionId());
-  ESP_LOGD(kModbusTypesTag, "  Unit ID: 0x%02X (%d)", 
+  ESP_LOGD(kModbusTypesTag, "  Unit ID: 0x%02X (%d)",
            unit_id, unit_id);
-  ESP_LOGD(kModbusTypesTag, "  Function Code: 0x%02X (%d)", 
+  ESP_LOGD(kModbusTypesTag, "  Function Code: 0x%02X (%d)",
            function_code, function_code);
-  ESP_LOGD(kModbusTypesTag, "  Address: 0x%02X%02X (%d)", 
+  ESP_LOGD(kModbusTypesTag, "  Address: 0x%02X%02X (%d)",
            address[0], address[1], getAddress());
-  ESP_LOGD(kModbusTypesTag, "  Number of Registers: 0x%02X%02X (%d)", 
-           number_registers[0], number_registers[1], 
+  ESP_LOGD(kModbusTypesTag, "  Number of Registers: 0x%02X%02X (%d)",
+           number_registers[0], number_registers[1],
            getNumberOfRegisters());
 }
 }  // namespace modbus_saj
