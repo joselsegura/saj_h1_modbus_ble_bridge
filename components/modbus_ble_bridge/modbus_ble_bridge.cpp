@@ -19,7 +19,6 @@ static constexpr uint16_t BLE_CHAR_WRITE = 0xFF01;
 void ModbusBleBridge::setup() {
   ESP_LOGI(TAG, "Setting up Modbus BLE Bridge");
   this->modbus_frame_response_.resize(8);
-  this->c_ = 0;
   this->total_calls_ = 0;
   this->total_errors_ = 0;
 }
@@ -167,57 +166,38 @@ void ModbusBleBridge::handle_modbus_tcp() {
   this->client_.clear();
   #endif
 
-  modbus_saj::ModbusTCPRequest modbus_request(modbus_request_v);
   this->ble_response_buffer_.clear();
   this->expected_frame_len_ = 0;
 
-  const uint8_t* address = modbus_request.getAddressBytes();
-  const uint8_t* number_registers  = modbus_request.getNumberRegistersBytes();
+  modbus_saj::ModbusTCPRequest modbus_request(modbus_request_v);
+  modbus_saj::ModbusBLERequest ble_req(modbus_request);
+
   this->total_registers_ = modbus_request.getNumberOfRegisters();
-
-  std::vector<uint8_t> ble_req = {
-    77,
-    0,
-    static_cast<uint8_t>(c_),
-    9,
-    50,
-    modbus_request.getUnitId(),
-    modbus_request.getFunctionCode(),
-    address[0],
-    address[1],
-    number_registers[0],
-    number_registers[1]
-  };
-
-  uint16_t crc = this->modrtu_crc(ble_req.data() + 5, 6);
-  ble_req.push_back(crc & 0xFF);
-  ble_req.push_back((crc >> 8) & 0xFF);
-  int total_regs = this->total_registers_;
 
   const uint8_t* transaction_identifier = modbus_request.getTransactionIdentifierBytes();
   const uint8_t* protocol_identifier = modbus_request.getProtocolIdentifierBytes();
+
   this->modbus_frame_response_[0] = transaction_identifier[0];
   this->modbus_frame_response_[1] = transaction_identifier[1];
   this->modbus_frame_response_[2] = protocol_identifier[0];
   this->modbus_frame_response_[3] = protocol_identifier[1];
-  this->modbus_frame_response_[4] = (total_regs & 0xFF00) >> 8;
-  this->modbus_frame_response_[5] = total_regs & 0xFF;
+  this->modbus_frame_response_[4] = (this->total_registers_ & 0xFF00) >> 8;
+  this->modbus_frame_response_[5] = this->total_registers_ & 0xFF;
   this->modbus_frame_response_[6] = modbus_request.getUnitId();
   this->modbus_frame_response_[7] = modbus_request.getFunctionCode();
 
-  ESP_LOGD(TAG, "Sending BLE request of %d bytes (seq=%d)", ble_req.size(), this->c_);
+  ESP_LOGD(TAG, "Sending BLE request (seq=%d)", ble_req.getBLETransactionId());
   this->send_ble_request(ble_req);
-  this->c_++;
-  if (this->c_ > 255) this->c_ = 0;
   this->total_calls_++;
-  ESP_LOGD(TAG, "BLE request sent, next seq=%d, total_calls=%d", this->c_, this->total_calls_);
+  ESP_LOGD(TAG, "BLE request sent, next seq=%d, total_calls=%d", ble_req.getBLETransactionId(), this->total_calls_);
   this->waiting_message_ = true;
   this->waiting_since_ = millis();
   this->last_wait_log_ = 0;
 }
 
-void ModbusBleBridge::send_ble_request(const std::vector<uint8_t> &request) {
-  ESP_LOGD(TAG, "send_ble_request invoked, size=%d", request.size());
+void ModbusBleBridge::send_ble_request(const modbus_saj::ModbusBLERequest &request) {
+  ESP_LOGD(TAG, "send_ble_request invoked");
+  
   if (!this->parent_ || !this->parent_->connected()) {
     ESP_LOGW(TAG, "BLE not connected when attempting to send request");
     return;
@@ -230,7 +210,8 @@ void ModbusBleBridge::send_ble_request(const std::vector<uint8_t> &request) {
     }
     ESP_LOGD(TAG, "BLE write characteristic acquired");
   }
-  this->char_write_->write_value((uint8_t*)request.data(), request.size(), ESP_GATT_WRITE_TYPE_NO_RSP);
+  std::array<uint8_t, 13> request_frame = request.toByteArray();
+  this->char_write_->write_value(request_frame.data(), request_frame.size(), ESP_GATT_WRITE_TYPE_NO_RSP);
   ESP_LOGD(TAG, "BLE request sent successfully");
 }
 
@@ -359,21 +340,5 @@ void ModbusBleBridge::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_i
       break;
   }
 }
-
-uint16_t ModbusBleBridge::modrtu_crc(const uint8_t *buf, int len) {
-  uint16_t crc = 0xFFFF;
-  for (int pos = 0; pos < len; pos++) {
-    crc ^= (uint16_t)buf[pos];
-    for (int i = 8; i != 0; i--) {
-      if ((crc & 0x0001) != 0) {
-        crc >>= 1;
-        crc ^= 0xA001;
-      } else
-        crc >>= 1;
-    }
-  }
-  return crc;
-}
-
 }  // namespace modbus_ble_bridge
 }  // namespace esphome
