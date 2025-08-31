@@ -13,4 +13,3 @@ repos:
   hooks:
     - id: cpplint
       args: ['--linelength=120', '--filter=-legal/copyright,-build/include_subdir']
-      
