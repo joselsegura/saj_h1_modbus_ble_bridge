@@ -14,6 +14,8 @@
 #endif
 #include <vector>
 
+#include "modbus_types.h"
+
 namespace esphome {
 namespace modbus_ble_bridge {
 
@@ -43,10 +45,10 @@ class ModbusBleBridge : public Component, public ble_client::BLEClientNode {
   int server_fd_ = -1;
   int client_fd_ = -1;
 #endif
+
   std::vector<uint8_t> modbus_frame_response_;
   int total_registers_ = 0;
   int errlen_ = 0;
-  int c_ = 0;
   int total_calls_ = 0;
   int total_errors_ = 0;
   unsigned long last_wifi_check_ = 0;
@@ -62,8 +64,7 @@ class ModbusBleBridge : public Component, public ble_client::BLEClientNode {
 
   void handle_modbus_tcp();
   void handle_ble_notify(const std::vector<uint8_t> &data);
-  void send_ble_request(const std::vector<uint8_t> &request);
-  uint16_t modrtu_crc(const uint8_t *buf, int len);
+  void send_ble_request(const modbus_saj::ModbusBLERequest &request);
 };
 
 }  // namespace modbus_ble_bridge
