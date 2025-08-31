@@ -36,7 +36,7 @@ const uint8_t* Modbus::getNumberRegistersBytes() const {
   return number_registers;
 }
 
-  // Constructor implementation
+// Constructor implementation
 ModbusTCPRequest::ModbusTCPRequest(const std::vector<uint8_t>& request) {
   // Parse header fields
   transaction_identifier[0] = request[0];
@@ -174,5 +174,23 @@ void ModbusBLERequest::printDebugInfo() const {
   ESP_LOGD(kModbusTypesTag, "  Number of Registers: 0x%02X%02X (%d)",
            number_registers[0], number_registers[1],
            getNumberOfRegisters());
+}
+
+// Constructor implementation
+ModbusBLEResponse::ModbusBLEResponse(const std::vector<uint8_t>& response) {
+  // Ignoring most of the header files, as we are only interested in the data
+  uint8_t data_length = response.at(BLE_HEADER_LENGTH) + 1;
+  const uint8_t *data_start_ptr = response.data() + BLE_HEADER_LENGTH;
+  data.assign(data_start_ptr, data_start_ptr + data_length);
+}
+
+const std::vector<uint8_t>& ModbusBLEResponse::getData() const {
+  return data;
+}
+
+ModbusBLEResponse::ModbusBLEResponse(const uint8_t* response, size_t length) {
+  uint8_t data_length = response[BLE_HEADER_LENGTH] + 1;
+  const uint8_t *data_start_ptr = response + BLE_HEADER_LENGTH;
+  data.assign(data_start_ptr, data_start_ptr + data_length);
 }
 }  // namespace modbus_saj
