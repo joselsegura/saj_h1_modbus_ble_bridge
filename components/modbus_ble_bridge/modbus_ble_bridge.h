@@ -1,7 +1,7 @@
 #pragma once
-#include "esphome.h"
-#include "esphome/components/ble_client/ble_client.h"
-#include "esphome/components/network/util.h"
+#include <esphome.h>
+#include <esphome/components/ble_client/ble_client.h>
+#include <esphome/components/network/util.h>
 #if defined(ARDUINO)
 #include <WiFi.h>
 #include <WiFiClient.h>
@@ -51,11 +51,11 @@ class ModbusBleBridge : public Component, public ble_client::BLEClientNode {
   int errlen_ = 0;
   int total_calls_ = 0;
   int total_errors_ = 0;
-  unsigned long last_wifi_check_ = 0;
-  unsigned long last_ble_msg_ = 0;
+  uint64_t last_wifi_check_ = 0;
+  uint64_t last_ble_msg_ = 0;
   bool waiting_message_ = false;
-  unsigned long waiting_since_ = 0;
-  unsigned long last_wait_log_ = 0;
+  uint64_t waiting_since_ = 0;
+  uint64_t last_wait_log_ = 0;
 
   esp32_ble_client::BLECharacteristic *char_read_ = nullptr;
   esp32_ble_client::BLECharacteristic *char_write_ = nullptr;

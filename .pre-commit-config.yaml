@@ -1,0 +1,16 @@
+repos:
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v6.0.0
+  hooks:
+  - id: trailing-whitespace
+    language_version: python3
+  - id: end-of-file-fixer
+    language_version: python3
+  - id: mixed-line-ending
+
+- repo: https://github.com/pocc/pre-commit-hooks
+  rev: master
+  hooks:
+    - id: cpplint
+      args: ['--linelength=120', '--filter=-legal/copyright,-build/include_subdir']
+      

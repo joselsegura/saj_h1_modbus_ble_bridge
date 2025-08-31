@@ -6,7 +6,7 @@ Designed for inverters that only provide local Bluetooth access (no LAN API) so 
 
 ## Status / Compatibility
 Tested with ESPHome 2025.6.3 and 2025.7.5
-Tested on both Arduino and ESP-IDF variants (ESP32).  
+Tested on both Arduino and ESP-IDF variants (ESP32).
 Not validated together with other active BLE clients; feedback welcome.
 
 ## Repository Structure
