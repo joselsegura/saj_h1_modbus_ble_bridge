@@ -343,12 +343,16 @@ void ModbusBleBridge::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_i
       ESP_LOGI(TAG, "Received correct BLE response length");
       this->errlen_ = 0;
       this->last_ble_msg_ = millis();
-      int longitud = abs(pData[7]);
-      ESP_LOGD(TAG, "Response byte count: %d", longitud);
+
+      modbus_saj::ModbusBLEResponse ble_resp(pData, length);
+      std::vector<uint8_t> data = ble_resp.getData();
+      ESP_LOGD(TAG, "Response byte count: %d", data.size() - 1);
+
+      const uint8_t *data_ptr = data.data();
       std::vector<uint8_t> combined;
-      combined.reserve(8 + 1 + longitud);
+      combined.reserve(8 + data.size());
       combined.insert(combined.end(), this->modbus_frame_response_.begin(), this->modbus_frame_response_.end());
-      combined.insert(combined.end(), pData + 7, pData + 7 + longitud + 1);
+      combined.insert(combined.end(), data_ptr, data_ptr + data.size());
       ESP_LOGI(TAG, "Sending Modbus/TCP response of %d bytes", combined.size());
   #if defined(ARDUINO)
       this->client_.write(combined.data(), combined.size());

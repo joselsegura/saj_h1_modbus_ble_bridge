@@ -7,6 +7,8 @@
 
 #include "esphome/core/log.h"
 
+#define BLE_HEADER_LENGTH 7
+
 namespace modbus_saj {
 
 static const char* const kModbusTypesTag = "modbus_types";
@@ -87,6 +89,20 @@ class ModbusBLERequest : public Modbus {
   // Debug method using ESPHome logging
   void printDebugInfo() const;
 };
+
+class ModbusBLEResponse : public Modbus {
+ private:
+  std::vector<uint8_t> data;
+
+ public:
+  ModbusBLEResponse() = default;
+
+  explicit ModbusBLEResponse(const std::vector<uint8_t>& response);
+  explicit ModbusBLEResponse(const uint8_t* response, size_t length);
+
+  const std::vector<uint8_t>& getData() const;
+};
+
 }  // namespace modbus_saj
 
 #endif  // COMPONENTS_MODBUS_BLE_BRIDGE_MODBUS_TYPES_H_
