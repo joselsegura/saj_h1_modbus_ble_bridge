@@ -57,7 +57,6 @@ class ModbusTCPRequest : public Modbus {
   void printDebugInfo() const;
 };
 
-
 class ModbusBLERequest : public Modbus {
  private:
   static uint8_t ble_transaction_id;
@@ -77,11 +76,11 @@ class ModbusBLERequest : public Modbus {
   // Default constructor
   ModbusBLERequest() = default;
 
-  // Constructor that takes a ModbusTCP object
+  // Constructor that takes a ModbusTCPRequest object
   explicit ModbusBLERequest(const ModbusTCPRequest& request);
 
   // Convert to byte array for BLE transmission
-  std::array<uint8_t, 13> toByteArray() const;
+  const std::vector<uint8_t> toBytes() const;
 
   // getters
   uint8_t getBLETransactionId() const;
@@ -103,6 +102,24 @@ class ModbusBLEResponse : public Modbus {
   const std::vector<uint8_t>& getData() const;
 };
 
+class ModbusTCPResponse : public Modbus {
+ private:
+  // Modbus TCP header fields
+  uint8_t protocol_identifier[2];
+  std::vector<uint8_t> data;
+
+ public:
+  // Default constructor
+  ModbusTCPResponse() = default;
+
+  // Constructor that takes a ModbusTCPRequest object
+  explicit ModbusTCPResponse(const ModbusTCPRequest& request, const ModbusBLEResponse& ble_response);
+
+  const std::vector<uint8_t> toBytes() const;
+
+  // Debug method using ESPHome logging
+  void printDebugInfo() const;
+};
 }  // namespace modbus_saj
 
 #endif  // COMPONENTS_MODBUS_BLE_BRIDGE_MODBUS_TYPES_H_

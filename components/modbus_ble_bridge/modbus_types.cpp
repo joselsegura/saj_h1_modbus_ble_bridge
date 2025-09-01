@@ -82,6 +82,59 @@ void ModbusTCPRequest::printDebugInfo() const {
            getNumberOfRegisters());
 }
 
+// Constructor implementation
+ModbusTCPResponse::ModbusTCPResponse(const ModbusTCPRequest& request, const ModbusBLEResponse& ble_response) {
+  const uint8_t *request_transaction_identifier = request.getTransactionIdentifierBytes();
+  const uint8_t *request_protocol_identifier = request.getProtocolIdentifierBytes();
+  uint16_t request_number_of_registers = request.getNumberOfRegisters();
+
+  transaction_identifier[0] = request_transaction_identifier[0];
+  transaction_identifier[1] = request_transaction_identifier[1];
+  protocol_identifier[0] = request_protocol_identifier[0];
+  protocol_identifier[1] = request_protocol_identifier[1];
+  unit_id = request.getUnitId();
+  function_code = request.getFunctionCode();
+  number_registers[0] = (request_number_of_registers & 0xFF00) >> 8;
+  number_registers[1] = request_number_of_registers & 0xFF;
+
+  data = ble_response.getData();
+}
+
+void ModbusTCPResponse::printDebugInfo() const {
+  ESP_LOGD(kModbusTypesTag, "Modbus TCP Response Frame Debug Info:");
+  ESP_LOGD(kModbusTypesTag, "  Transaction ID: 0x%02X%02X (%d)",
+           transaction_identifier[0], transaction_identifier[1],
+           getTransactionId());
+  ESP_LOGD(kModbusTypesTag, "  Protocol ID: 0x%02X%02X",
+           protocol_identifier[0], protocol_identifier[1]);
+  ESP_LOGD(kModbusTypesTag, "  Unit ID: 0x%02X (%d)",
+           unit_id, unit_id);
+  ESP_LOGD(kModbusTypesTag, "  Function Code: 0x%02X (%d)",
+           function_code, function_code);
+  ESP_LOGD(kModbusTypesTag, "  Number of Registers: 0x%02X%02X (%d)",
+           number_registers[0], number_registers[1],
+           getNumberOfRegisters());
+  ESP_LOGD(kModbusTypesTag, "  Data: %s", data.data());
+  ESP_LOGD(kModbusTypesTag, "  Data Size: %d", data.size());
+}
+
+// Convert to byte array for BLE transmission
+const std::vector<uint8_t> ModbusTCPResponse::toBytes() const {
+  std::vector<uint8_t> response = {
+    transaction_identifier[0],
+    transaction_identifier[1],
+    protocol_identifier[0],
+    protocol_identifier[1],
+    number_registers[0],          // Number of registers high byte
+    number_registers[1],          // Number of registers low byte
+    unit_id,                      // Modbus unit ID
+    function_code,                // Modbus function code
+  };
+
+  response.insert(response.end(), data.begin(), data.end());
+  return response;
+}
+
 // Static member initialization
 uint8_t ModbusBLERequest::ble_transaction_id = 0;
 
@@ -101,12 +154,12 @@ ModbusBLERequest::ModbusBLERequest(const ModbusTCPRequest& request) {
 }
 
 // Convert to byte array for BLE transmission
-std::array<uint8_t, 13> ModbusBLERequest::toByteArray() const {
+const std::vector<uint8_t> ModbusBLERequest::toBytes() const {
   uint16_t crc = getModRTU_CRC();
   uint8_t high_byte = crc >> 8;
   uint8_t low_byte = crc & 0xFF;
 
-  std::array<uint8_t, 13> request = {
+  std::vector<uint8_t> request = {
     77,                           // Magic number
     0,                            // Reserved
     ble_transaction_identifier,   // BLE transaction ID
