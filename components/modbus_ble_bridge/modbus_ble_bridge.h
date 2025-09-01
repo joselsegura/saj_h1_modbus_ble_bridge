@@ -46,8 +46,7 @@ class ModbusBleBridge : public Component, public ble_client::BLEClientNode {
   int client_fd_ = -1;
 #endif
 
-  std::vector<uint8_t> modbus_frame_response_;
-  int total_registers_ = 0;
+  modbus_saj::ModbusTCPRequest modbus_tcp_request;
   int errlen_ = 0;
   int total_calls_ = 0;
   int total_errors_ = 0;

@@ -18,7 +18,6 @@ static constexpr uint16_t BLE_CHAR_WRITE = 0xFF01;
 
 void ModbusBleBridge::setup() {
   ESP_LOGI(TAG, "Setting up Modbus BLE Bridge");
-  this->modbus_frame_response_.resize(8);
   this->total_calls_ = 0;
   this->total_errors_ = 0;
 }
@@ -182,22 +181,8 @@ void ModbusBleBridge::handle_modbus_tcp() {
   this->ble_response_buffer_.clear();
   this->expected_frame_len_ = 0;
 
-  modbus_saj::ModbusTCPRequest modbus_request(modbus_request_v);
-  modbus_saj::ModbusBLERequest ble_req(modbus_request);
-
-  this->total_registers_ = modbus_request.getNumberOfRegisters();
-
-  const uint8_t* transaction_identifier = modbus_request.getTransactionIdentifierBytes();
-  const uint8_t* protocol_identifier = modbus_request.getProtocolIdentifierBytes();
-
-  this->modbus_frame_response_[0] = transaction_identifier[0];
-  this->modbus_frame_response_[1] = transaction_identifier[1];
-  this->modbus_frame_response_[2] = protocol_identifier[0];
-  this->modbus_frame_response_[3] = protocol_identifier[1];
-  this->modbus_frame_response_[4] = (this->total_registers_ & 0xFF00) >> 8;
-  this->modbus_frame_response_[5] = this->total_registers_ & 0xFF;
-  this->modbus_frame_response_[6] = modbus_request.getUnitId();
-  this->modbus_frame_response_[7] = modbus_request.getFunctionCode();
+  modbus_tcp_request = modbus_saj::ModbusTCPRequest(modbus_request_v);
+  modbus_saj::ModbusBLERequest ble_req(modbus_tcp_request);
 
   ESP_LOGD(TAG, "Sending BLE request (seq=%d)", ble_req.getBLETransactionId());
   this->send_ble_request(ble_req);
@@ -223,7 +208,7 @@ void ModbusBleBridge::send_ble_request(const modbus_saj::ModbusBLERequest &reque
     }
     ESP_LOGD(TAG, "BLE write characteristic acquired");
   }
-  std::array<uint8_t, 13> request_frame = request.toByteArray();
+  std::vector<uint8_t> request_frame = request.toBytes();
   this->char_write_->write_value(request_frame.data(), request_frame.size(), ESP_GATT_WRITE_TYPE_NO_RSP);
   ESP_LOGD(TAG, "BLE request sent successfully");
 }
@@ -278,6 +263,7 @@ void ModbusBleBridge::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_i
       ESP_LOGD(TAG, "Found read characteristic");
       auto status = esp_ble_gattc_register_for_notify(this->parent_->get_gattc_if(), this->parent_->get_remote_bda(),
                                                       this->char_read_->handle);
+
       if (status) {
         ESP_LOGW(TAG, "esp_ble_gattc_register_for_notify failed, status=%d", status);
       }
@@ -303,9 +289,9 @@ void ModbusBleBridge::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_i
       size_t length = param->notify.value_len;
       ESP_LOGD(
         TAG, "BLE notify: length=%d, expected=%d, registers=%d",
-        length, this->total_registers_ + 7, this->total_registers_);
+        length, modbus_tcp_request.getNumberOfRegisters() + 7, modbus_tcp_request.getNumberOfRegisters());
 
-      if (this->modbus_frame_response_.size() >= 8 && this->modbus_frame_response_[7] == 6) {
+      if (modbus_tcp_request.getFunctionCode() == 6) {
         ESP_LOGI(TAG, "Write command response - flushing client");
         ESP_LOGI(TAG, "Closing TCP client after write single register response");
   #if defined(ARDUINO)
@@ -318,11 +304,11 @@ void ModbusBleBridge::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_i
   #endif
         break;
       }
-      if ((static_cast<int>(length) - 7) != this->total_registers_) {
+      if ((static_cast<int>(length) - 7) != modbus_tcp_request.getNumberOfRegisters()) {
         this->errlen_++;
         ESP_LOGW(
           TAG, "Wrong response length (error %d): expected %d registers, got %d bytes",
-          this->errlen_, this->total_registers_, (int)length - 7);
+          this->errlen_, modbus_tcp_request.getNumberOfRegisters(), (int)length - 7);
 
         if (this->errlen_ > 5) {
           ESP_LOGE(TAG, "Too many length errors (5) - resetting connection");
@@ -349,18 +335,18 @@ void ModbusBleBridge::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_i
       ESP_LOGD(TAG, "Response byte count: %d", data.size() - 1);
 
       const uint8_t *data_ptr = data.data();
-      std::vector<uint8_t> combined;
-      combined.reserve(8 + data.size());
-      combined.insert(combined.end(), this->modbus_frame_response_.begin(), this->modbus_frame_response_.end());
-      combined.insert(combined.end(), data_ptr, data_ptr + data.size());
-      ESP_LOGI(TAG, "Sending Modbus/TCP response of %d bytes", combined.size());
+
+      modbus_saj::ModbusTCPResponse modbus_resp(modbus_tcp_request, ble_resp);
+      std::vector<uint8_t> modbus_resp_bytes = modbus_resp.toBytes();
+      ESP_LOGI(TAG, "Sending Modbus/TCP response of %d bytes", modbus_resp_bytes.size());
+
   #if defined(ARDUINO)
-      this->client_.write(combined.data(), combined.size());
+      this->client_.write(modbus_resp_bytes.data(), modbus_resp_bytes.size());
       this->client_.stop();
       ESP_LOGI(TAG, "Closed TCP client after sending Modbus/TCP response");
   #else
       if (this->client_fd_ >= 0) {
-        ::send(this->client_fd_, (const char*)combined.data(), combined.size(), 0);
+        ::send(this->client_fd_, modbus_resp_bytes.data(), modbus_resp_bytes.size(), 0);
         ::close(this->client_fd_);
         this->client_fd_ = -1;
         ESP_LOGI(TAG, "Closed TCP client after sending Modbus/TCP response (ESP-IDF)");
